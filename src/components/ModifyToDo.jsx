@@ -1,0 +1,107 @@
+import { useForm } from "react-hook-form"
+import * as yup from "yup"
+import { yupResolver } from "@hookform/resolvers/yup"
+import axios from "axios"
+import { API } from "../constants/config"
+import { useEffect, useState } from "react"
+
+const UpdateToDo = ({ state, updateState, id }) => {
+    const [open, setOpen] = useState(false)
+    const [currentState, setCurrentState] = useState("")
+    const schema = yup.object().shape({
+        title: yup.string().min(8).required("Title is required"),
+        description: yup.string().min(8).required("Descriptioon is required")
+    })
+    const { register, handleSubmit, formState: { errors } } = useForm({
+        resolver: yupResolver(schema)
+    })
+
+    const onSubmit = (data) => {
+        setCurrentState(
+            <div className="fixed top-0 left-0 w-full h-full bg-base-100 bg-opacity-50 flex justify-center items-center">
+                <span className="loading loading-spinner loading-lg"></span>
+            </div>
+        )
+        axios.put(`${API}/api/todo/update/${id}`, {
+            "todo_title": data.title,
+            "todo_description": data.description,
+            "user_id": JSON.parse(sessionStorage.getItem("user")).id
+        }).then((response) => {
+            if (response.data) {
+                setCurrentState()
+                updateState()
+                document.getElementById(domID).close()
+            }
+        }).catch((error) => {
+            if (error.response) {
+                setCurrentState(
+                    <div role="alert" className="alert alert-error">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>{error.response.data.message}</span>
+                    </div>
+                )
+            }
+        })
+    }
+
+    useEffect(() => {
+        if (!open) return
+        axios.get(`${API}/api/todo/find/${id}`).then((response) => {
+            document.getElementById(domID).querySelector("input").value = response.data[0].todo_title
+            document.getElementById(domID).querySelector("textarea").value = response.data[0].todo_description
+        }).catch((error) => {
+            console.log(error)
+        })
+    }, [open])
+
+
+    const RandomIdGenerator = () => {
+        let ids = 'id_';
+        let random = Math.random().toString(36).substr(2, 9);
+        ids += random;
+        if (document.getElementById(ids)) {
+            ids = RandomIdGenerator();
+        }
+        return ids;
+    }
+
+    const domID = RandomIdGenerator();
+
+    return (
+        <>
+            <button className="btn btn-sm btn-warning" onClick={() => {setOpen(false);setOpen(true); document.getElementById(domID).showModal()}}>Update</button>
+            <dialog id={domID} className="modal">
+                <div className="modal-box w-11/12 max-w-5xl">
+                    <h3 className="font-bold text-lg">Modifying Details for {id}</h3>
+                    <br />
+                    {currentState}
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">Title</span>
+                        </label>
+                        <input type="text" placeholder="Title" className="input input-bordered" {...register("title")} />
+                        <p className="text-error">{errors.title?.message}</p>
+                    </div>
+
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">Description</span>
+                        </label>
+                        <textarea placeholder="Description" className="textarea textarea-bordered" {...register("description")} />
+                        <p className="text-error">{errors.description?.message}</p>
+                    </div>
+                    <div className="modal-action">
+                        <form method="dialog">
+                            <button className="btn btn-success" onClick={handleSubmit(onSubmit)}>Update</button>
+                            &nbsp;
+                            &nbsp;
+                            <button className="btn btn-error">Close</button>
+                        </form>
+                    </div>
+                </div>
+            </dialog>
+        </>
+    )
+}
+
+export default UpdateToDo
